@@ -1,6 +1,7 @@
 package fr.cerema.dsi.ldap.activedirectory.client;
 
 import org.apache.directory.api.ldap.model.cursor.CursorException;
+import org.apache.directory.api.ldap.model.cursor.EntryCursor;
 import org.apache.directory.api.ldap.model.cursor.SearchCursor;
 import org.apache.directory.api.ldap.model.entry.*;
 import org.apache.directory.api.ldap.model.exception.LdapException;
@@ -139,7 +140,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             }
         }
         catch(LdapException lde) {
-            LOG.error("An error occured while fetching next cursor of LDAP request results.");
+            LOG.error("An error occured while requesting the ldap server.");
             LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
         }
         catch (CursorException ce) {
@@ -154,6 +155,37 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         }
 
         return results;
+    }
+
+    @Override
+    public Entry getByObjectSid(String objectSID, String searchBase) {
+        LOG.info("getByObjectSid called with : " + objectSID);
+        Entry resultEntry = null;
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            try {
+
+                // Process the request
+                EntryCursor entryCursor = ldapConnection.search(searchBase, "(objectSID=" + objectSID + ")", SearchScope.SUBTREE, "*");
+                entryCursor.next();
+                resultEntry=entryCursor.get();
+            }
+            catch(LdapException lde) {
+                LOG.error("An error occured while requesting the ldap server.");
+                LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+            }
+            catch (CursorException ce) {
+                LOG.error("An error occured while fetching next cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+            }
+        }
+
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+        }
+
+        return resultEntry;
     }
 
     private Set<String> getAllUsersForGroupDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
