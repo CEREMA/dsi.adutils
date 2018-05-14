@@ -1,7 +1,11 @@
 package fr.cerema.dsi.ldap.activedirectory.client;
 
+import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AbstractAdObject;
+import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AdGroup;
+import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AdUser;
 import org.apache.directory.api.ldap.model.entry.Entry;
 
+import java.util.List;
 import java.util.Set;
 
 public interface ActiveDirectoryClient {
@@ -11,9 +15,9 @@ public interface ActiveDirectoryClient {
     static String AD_USER_OBJECTCLASS = "user";
 
 
-    Set<String> getUsersForDN(String dn, boolean recursive);
+    Set<AdUser> getUsersForDN(String dn, boolean recursive);
 
-    Set<String> getGroupsForDN(String dn, boolean recursive);
+    Set<AdGroup> getGroupsForDN(String dn, boolean recursive);
 
     Set<String> findBySAMAccountName(String sAMAccountName, String searchBase);
 
@@ -21,7 +25,8 @@ public interface ActiveDirectoryClient {
 
     String addEntityToGroup(String entityDn, String groupDN);
 
-    Entry getByObjectSid(String objectSid, String searchBase);
+    AbstractAdObject getObjectBySid(String objectSid, String searchBase);
 
-    //String getObjectSid(String objectSID, String searchBase);
+    Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase);
+
 }

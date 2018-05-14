@@ -1,17 +1,24 @@
 package fr.cerema.dsi.ldap.activedirectory.client;
 
+import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AbstractAdObject;
+import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AdGroup;
+import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AdUser;
 import org.apache.directory.api.ldap.model.cursor.CursorException;
 import org.apache.directory.api.ldap.model.cursor.EntryCursor;
 import org.apache.directory.api.ldap.model.cursor.SearchCursor;
 import org.apache.directory.api.ldap.model.entry.*;
 import org.apache.directory.api.ldap.model.exception.LdapException;
+import org.apache.directory.api.ldap.model.exception.LdapInvalidAttributeValueException;
 import org.apache.directory.api.ldap.model.message.*;
 import org.apache.directory.api.ldap.model.name.Dn;
 import org.apache.directory.ldap.client.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.Assert;
 
 import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
@@ -37,16 +44,17 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 +":"+this.ldapConnectionConfig.getLdapPort();
     }
 
-    public Set<String> getGroupsForDN(String dn, boolean recursive) {
+    public Set<AdGroup> getGroupsForDN(String dn, boolean recursive) {
         LOG.info("getAllGroupsForDN called with Dn:" + dn);
-        Set<String> groups = new HashSet<String>();
-        groups.addAll(this.getAllGroupsForDN(dn, recursive, groups));
+        Set<AdGroup> groups = new HashSet<AdGroup>();
+        Set<String> groupsExplored = new HashSet<>();
+        groups.addAll(this.getAllGroupsForDN(dn, recursive, groupsExplored));
         return groups;
     }
 
-    public Set<String> getUsersForDN(String dn, boolean recursive) {
+    public Set<AdUser> getUsersForDN(String dn, boolean recursive) {
         LOG.info("getAllUsersForDN called with Dn:" + dn);
-        Set<String> users = new HashSet<String>();
+        Set<AdUser> users = new HashSet<AdUser>();
         Set<String> groups = new HashSet<String>();
         users.addAll(this.getAllUsersForGroupDN(dn, recursive, groups));
         return users;
@@ -157,18 +165,27 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         return results;
     }
 
+    public Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase) {
+        Set<AbstractAdObject> results = new HashSet<>();
+        for (String sid : sids ) {
+            results.add(this.getObjectBySid(sid, searchBase));
+        }
+        return results;
+    }
+
     @Override
-    public Entry getByObjectSid(String objectSID, String searchBase) {
-        LOG.info("getByObjectSid called with : " + objectSID);
-        Entry resultEntry = null;
+    public AbstractAdObject getObjectBySid(String objectSid, String searchBase) {
+        LOG.info("getByObjectSid called with : " + objectSid);
+        AbstractAdObject result = null;
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
             try {
-
-                // Process the request
-                EntryCursor entryCursor = ldapConnection.search(searchBase, "(objectSID=" + objectSID + ")", SearchScope.SUBTREE, "*");
+                EntryCursor entryCursor = ldapConnection.search(searchBase, "(objectSid=" + objectSid + ")", SearchScope.SUBTREE, "*");
                 entryCursor.next();
-                resultEntry=entryCursor.get();
+                Entry resultEntry=entryCursor.get();
+                Attribute classes = resultEntry.get("objectClass");
+                if (classes.contains(AD_USER_OBJECTCLASS)) result = this.createUserFromUserEntry(resultEntry);
+                if (classes.contains(AD_GROUP_OBJECTCLASS)) result = this.createGroupFromGroupEntry(resultEntry);
             }
             catch(LdapException lde) {
                 LOG.error("An error occured while requesting the ldap server.");
@@ -185,11 +202,11 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
         }
 
-        return resultEntry;
+        return result;
     }
 
-    private Set<String> getAllUsersForGroupDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
-        Set<String> users = new HashSet<String>();
+    private Set<AdUser> getAllUsersForGroupDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
+        Set<AdUser> users = new HashSet<AdUser>();
         LOG.debug("***Exploring  " + dn);
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
@@ -216,7 +233,6 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                     }
                 }
                 req.setScope(SearchScope.SUBTREE);
-                //req.addAttributes("(distinguishedName=CN=CHARLES Alain (alain.charles),OU=Utilisateurs,OU=Siège,DC=lab,DC=cerema,DC=fr)");
                 req.addAttributes("*");
                 req.setTimeLimit(0);
                 req.setFilter("(objectClass=*)");
@@ -232,7 +248,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                             if (classe != null) {
                                 for (Value value : classe) {
                                     if (value.toString().equals(ActiveDirectoryClient.AD_USER_OBJECTCLASS)) {
-                                        users.add(member);
+                                        users.add(this.createUserFromUserEntry(resultEntry));
                                     }
                                     if (recursive) {
                                         if (value.toString().equals(ActiveDirectoryClient.AD_GROUP_OBJECTCLASS)) {
@@ -264,9 +280,10 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         return users;
     }
 
-    private Set<String> getAllGroupsForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
+    private Set<AdGroup> getAllGroupsForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
 
-        Set<String> groups = new HashSet<String>();
+        Set<AdGroup> groups = new HashSet<AdGroup>();
+        Set<String> memberOfs = new HashSet<>();
         LOG.debug("***Exploring  " + dn);
 
         try {
@@ -283,20 +300,36 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 SearchCursor searchCursor = ldapConnection.search(req);
                 while (searchCursor.next()) {
                     Response response = searchCursor.get();
-
-                    // process the SearchResultEntry
                     if (response instanceof SearchResultEntry) {
                         Entry resultEntry = ((SearchResultEntry) response).getEntry();
                         Attribute listMemberOf = resultEntry.get("memberOf");
                         if (listMemberOf != null) {
                             for (Value value : listMemberOf) {
-                                groups.add(value.toString()); // On s'en fout on le met même s'il y est déjà
-                                if (recursive) {
-                                    if (groupsAlreadyExplored.contains(value.toString())) {
-                                        LOG.debug("****Skipping " + dn);
-                                    } else {
-                                        groupsAlreadyExplored.add(value.toString());
-                                        groups.addAll(getAllGroupsForDN(value.toString(), true, groupsAlreadyExplored));
+                                memberOfs.add(value.toString());
+                            }
+                        }
+                    }
+                }
+                for (String memberOf : memberOfs) {
+                    req.setBase(new Dn(memberOf));
+                    searchCursor = ldapConnection.search(req);
+                    while (searchCursor.next()) {
+                        Response response = searchCursor.get();
+                        if (response instanceof SearchResultEntry) {
+                            Entry resultEntry = ((SearchResultEntry) response).getEntry();
+                            Attribute classe = resultEntry.get("objectClass");
+                            if (classe != null) {
+                                for (Value value : classe) {
+                                    if (value.toString().equals(ActiveDirectoryClient.AD_GROUP_OBJECTCLASS)) {
+                                        groups.add(this.createGroupFromGroupEntry(resultEntry));
+                                        if (recursive) {
+                                            if (groupsAlreadyExplored.contains(memberOf)) {
+                                                LOG.debug("****Skipping " + memberOf);
+                                            } else {
+                                                groupsAlreadyExplored.add(memberOf);
+                                                groups.addAll(getAllGroupsForDN(memberOf, true, groupsAlreadyExplored));
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -319,5 +352,36 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
 
         return groups;
     }
+
+    private AdUser createUserFromUserEntry(Entry userEntry ) throws LdapInvalidAttributeValueException {
+        Assert.notNull(userEntry, "Entry userEntry cannot be null");
+        Attribute classes = userEntry.get("objectClass");
+        Assert.isTrue(classes.contains(AD_USER_OBJECTCLASS),"Given Entry is not a user entry") ;
+        AdUser result = new AdUser();
+        result.setDistinguishedName(userEntry.get("distinguishedName").getString());
+        if (Objects.nonNull(userEntry.get("userPrincipalName"))) result.setUserPrincipalName(userEntry.get("userPrincipalName").getString());
+        result.setsAMAccountName(userEntry.get("sAMaccountName").getString());
+        if (Objects.nonNull(userEntry.get("cn"))) result.setCommonName(userEntry.get("cn").getString());
+        if (Objects.nonNull(userEntry.get("givenName"))) result.setFirstname(userEntry.get("givenName").getString());
+        if (Objects.nonNull(userEntry.get("mail"))) result.setMail(userEntry.get("mail").getString());
+        if (Objects.nonNull(userEntry.get("telephoneNumber"))) result.setTelephoneNumber(userEntry.get("telephoneNumber").getString());
+        if (Objects.nonNull(userEntry.get("department"))) result.setDepartment(userEntry.get("department").getString());
+        if (Objects.nonNull(userEntry.get("sn"))) result.setSurname(userEntry.get("sn").getString());
+        result.setObjectSid(userEntry.get("objectSid").getBytes());
+        return result;
+    }
+
+    private AdGroup createGroupFromGroupEntry(Entry groupEntry ) throws LdapInvalidAttributeValueException {
+        Assert.notNull(groupEntry, "Entry groupEntry cannot be null");
+        Attribute classes = groupEntry.get("objectClass");
+        Assert.isTrue(classes.contains(AD_GROUP_OBJECTCLASS),"Given Entry is not a group entry") ;
+        AdGroup result = new AdGroup();
+        result.setDistinguishedName(groupEntry.get("distinguishedName").getString());
+        result.setsAMAccountName(groupEntry.get("sAMaccountName").getString());
+        if (Objects.nonNull(groupEntry.get("cn"))) result.setCommonName(groupEntry.get("cn").getString());
+        result.setObjectSid(groupEntry.get("objectSid").getBytes());
+        return result;
+    }
+
 
 }
