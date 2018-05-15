@@ -33,6 +33,7 @@
             <properties>
                 <source.version>10</source.version>
                 <target.version>10</target.version>
+                <javadoc.link>https://docs.oracle.com/javase/10/docs/api/</javadoc.link>
             </properties>
         </profile>
         <profile>
@@ -43,6 +44,7 @@
             <properties>
                 <source.version>8</source.version>
                 <target.version>8</target.version>
+                <javadoc.link>https://docs.oracle.com/javase/8/docs/api/</javadoc.link>
             </properties>
         </profile>
     </profiles>
