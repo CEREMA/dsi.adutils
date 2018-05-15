@@ -1,16 +1,34 @@
+/*
+ * Copyright (c) 2018 - Alain CHARLES
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *           http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License
+ */
+
 package fr.cerema.dsi.ldap.activedirectory.client;
 
-import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AbstractAdObject;
-import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AdGroup;
-import fr.cerema.dsi.ldap.activedirectory.client.fr.cerema.dsi.ldap.activedirectory.model.AdUser;
+import fr.cerema.dsi.ldap.activedirectory.client.model.AbstractAdObject;
+import fr.cerema.dsi.ldap.activedirectory.client.model.AdGroup;
+import fr.cerema.dsi.ldap.activedirectory.client.model.AdUser;
 import org.apache.directory.api.ldap.model.cursor.CursorException;
 import org.apache.directory.api.ldap.model.cursor.EntryCursor;
 import org.apache.directory.api.ldap.model.cursor.SearchCursor;
 import org.apache.directory.api.ldap.model.entry.*;
 import org.apache.directory.api.ldap.model.exception.LdapException;
 import org.apache.directory.api.ldap.model.exception.LdapInvalidAttributeValueException;
+import org.apache.directory.api.ldap.model.exception.LdapInvalidDnException;
 import org.apache.directory.api.ldap.model.message.*;
 import org.apache.directory.api.ldap.model.name.Dn;
+import org.apache.directory.api.ldap.model.name.Rdn;
 import org.apache.directory.ldap.client.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +62,38 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 +":"+this.ldapConnectionConfig.getLdapPort();
     }
 
+    @Override
+    public AbstractAdObject getByDn(String dn, String searchBase) {
+        LOG.info("getByDn called with : " + dn + " and searchBase : " + searchBase);
+        AbstractAdObject result = null;
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            try {
+                EntryCursor entryCursor = ldapConnection.search(searchBase, "(distinguishedName=" + dn + ")", SearchScope.SUBTREE, "*");
+                entryCursor.next();
+                Entry resultEntry=entryCursor.get();
+                Attribute classes = resultEntry.get("objectClass");
+                if (classes.contains(AD_USER_OBJECTCLASS)) result = this.createUserFromUserEntry(resultEntry);
+                if (classes.contains(AD_GROUP_OBJECTCLASS)) result = this.createGroupFromGroupEntry(resultEntry);
+            }
+            catch(LdapException lde) {
+                LOG.error("An error occured while requesting the ldap server.");
+                LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+            }
+            catch (CursorException ce) {
+                LOG.error("An error occured while fetching next cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+            }
+        }
+
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+        }
+
+        return result;
+    }
+
     public Set<AdGroup> getGroupsForDN(String dn, boolean recursive) {
         LOG.info("getAllGroupsForDN called with Dn:" + dn);
         Set<AdGroup> groups = new HashSet<AdGroup>();
@@ -61,20 +111,50 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
-    public String createSecurityGroup(String dn, String samAccountName) {
-        LOG.info("createSecurityGroup called with Dn: " + dn + " and samAccountName: " + samAccountName);
-        String dnCreated = null;
+    public AdGroup createSecurityGroup(String dn) {
+        return this.createSecurityGroup(dn, null, null);
+    }
+
+    @Override
+    public AdGroup createSecurityGroup(String dn, String description) {
+        return this.createSecurityGroup(dn, description, null);
+    }
+
+    @Override
+    public AdGroup createSecurityGroup(String dn, String description, String sAMAccountName) {
+        LOG.info("createSecurityGroup called with Dn: " + dn + " description: " + description + " samAccountName: " + sAMAccountName);
+        AdGroup groupCreated = null;
+        String accountName = null;
+        StringBuffer searchBase = new StringBuffer();
+
+        // Arguments check
+        try {
+            Dn dnToCreate = new Dn(dn);
+            accountName = ((sAMAccountName == null || "".equals(sAMAccountName) ? dnToCreate.getRdn().getValue() : sAMAccountName)) ;
+            List<Rdn> rdns = dnToCreate.getRdns();
+
+            searchBase.append(rdns.get(1).toString());
+            for (Rdn rdn : rdns.subList(2, rdns.size())) {
+                searchBase.append(",");
+                searchBase.append(rdn.toString());
+            }
+        } catch (LdapInvalidDnException e) {
+            LOG.error(dn + " is not a valid dn.");
+            return null;
+        }
+
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
             try {
-                ldapConnection.add(
-                    new DefaultEntry(
-                            dn,
-                            "sAMAccountName: "+samAccountName,
-                            "ObjectClass: " + ActiveDirectoryClient.AD_GROUP_OBJECTCLASS,
-                            "groupType: " + ActiveDirectoryClient.AD_GLOBAL_SECURITYGROUP_FLAGS
-                    ));
-                dnCreated = dn;
+                Entry entry = new DefaultEntry(dn,
+                        "sAMAccountName: "+accountName,
+                        "ObjectClass: " + ActiveDirectoryClient.AD_GROUP_OBJECTCLASS,
+                        "groupType: " + ActiveDirectoryClient.AD_GLOBAL_SECURITYGROUP_FLAGS);
+                if (description != null && !"".equals(description)) {
+                    entry.add("description", description);
+                }
+                ldapConnection.add(entry);
+                groupCreated = (AdGroup) this.getByDn(dn, searchBase.toString());
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for security group creation :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
@@ -87,14 +167,13 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
         }
 
-        return dnCreated;
+        return groupCreated;
 
     }
 
     @Override
-    public String addEntityToGroup(String entityDn, String groupDn) {
+    public void addEntityToGroup(String entityDn, String groupDn) {
         LOG.info("addEntityToGroup called with entityDn: + " + entityDn + " and groupDn" + groupDn);
-        String entityAdded = null;
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
             try {
@@ -104,7 +183,6 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                           entityDn);
 
                 ldapConnection.modify(groupDn,addMemberModification);
-                entityAdded = entityDn;
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for group modification :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
@@ -116,8 +194,31 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
         }
+    }
 
-        return entityAdded;
+    @Override
+    public void removeEntityFromGroup(String entityDn, String groupDn) {
+        LOG.info("removeEntityFromGroup called with entityDn: + " + entityDn + " and groupDn" + groupDn);
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            try {
+                Modification memberModification = new DefaultModification(
+                        ModificationOperation.REMOVE_ATTRIBUTE,
+                        "member",
+                        entityDn);
+
+                ldapConnection.modify(groupDn,memberModification);
+            } catch (LdapException lde) {
+                LOG.error("An error occured while requesting LDAP Server for group modification :");
+                LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            } finally {
+                ldapConnectionPool.releaseConnection(ldapConnection);
+            }
+        }
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+        }
     }
 
     @Override
@@ -378,6 +479,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         AdGroup result = new AdGroup();
         result.setDistinguishedName(groupEntry.get("distinguishedName").getString());
         result.setsAMAccountName(groupEntry.get("sAMaccountName").getString());
+        if (Objects.nonNull(groupEntry.get("description"))) result.setDescription(groupEntry.get("description").getString());
         if (Objects.nonNull(groupEntry.get("cn"))) result.setCommonName(groupEntry.get("cn").getString());
         result.setObjectSid(groupEntry.get("objectSid").getBytes());
         return result;
