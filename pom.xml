@@ -31,6 +31,8 @@
                 <activeByDefault>false</activeByDefault>
             </activation>
             <properties>
+                <source.version>10</source.version>
+                <target.version>10</target.version>
             </properties>
         </profile>
         <profile>
@@ -38,6 +40,10 @@
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
+            <properties>
+                <source.version>8</source.version>
+                <target.version>8</target.version>
+            </properties>
         </profile>
     </profiles>
 
@@ -92,8 +98,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>10</source>
-                    <target>10</target>
+                    <source>${source.version}</source>
+                    <target>${target.version}</target>
                 </configuration>
             </plugin>
             <plugin>
