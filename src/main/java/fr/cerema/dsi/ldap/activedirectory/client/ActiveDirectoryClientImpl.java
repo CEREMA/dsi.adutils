@@ -63,13 +63,26 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
-    public AbstractAdObject getByDn(String dn, String searchBase) {
-        LOG.info("getByDn called with : " + dn + " and searchBase : " + searchBase);
+    public AbstractAdObject getByDn(String dn) {
+        LOG.info("getByDn called with : " + dn);
         AbstractAdObject result = null;
+        StringBuffer searchBase = new StringBuffer();
+        try {
+            Dn dnToFind = new Dn(dn);
+            List<Rdn> rdns = dnToFind.getRdns();
+            searchBase.append(rdns.get(1).toString());
+            for (Rdn rdn : rdns.subList(2, rdns.size())) {
+                searchBase.append(",");
+                searchBase.append(rdn.toString());
+            }
+        } catch (LdapInvalidDnException e) {
+            LOG.error(dn + " is not a valid dn.");
+            return null;
+        }
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
             try {
-                EntryCursor entryCursor = ldapConnection.search(searchBase, "(distinguishedName=" + dn + ")", SearchScope.SUBTREE, "*");
+                EntryCursor entryCursor = ldapConnection.search(searchBase.toString(), "(distinguishedName=" + dn + ")", SearchScope.SUBTREE, "*");
                 entryCursor.next();
                 Entry resultEntry=entryCursor.get();
                 Attribute classes = resultEntry.get("objectClass");
@@ -131,13 +144,6 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         try {
             Dn dnToCreate = new Dn(dn);
             accountName = ((sAMAccountName == null || "".equals(sAMAccountName) ? dnToCreate.getRdn().getValue() : sAMAccountName)) ;
-            List<Rdn> rdns = dnToCreate.getRdns();
-
-            searchBase.append(rdns.get(1).toString());
-            for (Rdn rdn : rdns.subList(2, rdns.size())) {
-                searchBase.append(",");
-                searchBase.append(rdn.toString());
-            }
         } catch (LdapInvalidDnException e) {
             LOG.error(dn + " is not a valid dn.");
             return null;
@@ -154,7 +160,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                     entry.add("description", description);
                 }
                 ldapConnection.add(entry);
-                groupCreated = (AdGroup) this.getByDn(dn, searchBase.toString());
+                groupCreated = (AdGroup) this.getByDn(dn);
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for security group creation :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
