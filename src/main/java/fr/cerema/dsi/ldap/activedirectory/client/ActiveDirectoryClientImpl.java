@@ -112,6 +112,44 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         return result;
     }
 
+    @Override
+    public AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase) {
+        LOG.info("getBySAMAccountName called with sAMAccountName: " + sAMAccountName + " and searchBase: " + searchBase);
+        AbstractAdObject result = null;
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            LOG.debug("Successfully got connection from pool");
+            try {
+                EntryCursor entryCursor = ldapConnection.search(searchBase.toString(),
+                        "(sAMAccountName=" + sAMAccountName + ")", SearchScope.SUBTREE, "*");
+                entryCursor.next();
+                Entry resultEntry=entryCursor.get();
+                Attribute classes = resultEntry.get("objectClass");
+                if (classes.contains(AD_USER_OBJECTCLASS)) result = this.createUserFromUserEntry(resultEntry);
+                if (classes.contains(AD_GROUP_OBJECTCLASS)) result = this.createGroupFromGroupEntry(resultEntry);
+            }
+            catch(LdapException lde) {
+                LOG.error("An error occured while requesting the ldap server.");
+                LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+            }
+            catch (CursorException ce) {
+                LOG.error("An error occured while fetching next cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+            }
+            finally {
+                ldapConnectionPool.releaseConnection(ldapConnection);
+                LOG.debug("Successfully released connection to pool");
+            }
+        }
+
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+        }
+
+        return result;
+    }
+
     public Set<AdGroup> getGroupsForDN(String dn, boolean recursive) {
         LOG.info("getAllGroupsForDN called with Dn:" + dn);
         Set<AdGroup> groups = new HashSet<AdGroup>();

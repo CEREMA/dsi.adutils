@@ -57,6 +57,14 @@ public interface ActiveDirectoryClient {
 
     Set<String> findBySAMAccountName(String sAMAccountName, String searchBase);
 
+    /**
+     * Returns an Active Directory Object by sAMAccountName, searching the directory from the searchBase
+     * @param sAMAccountName the sAMAccountName of the object to get
+     * @param searchBase the searchBase to search from
+     * @return an {@link AbstractAdObject}, i.e. for the moment a {@link AdGroup} or a {@link AdUser}
+     */
+    AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase);
+
     AdGroup createSecurityGroup(String dn);
 
     AdGroup createSecurityGroup(String dn, String description) ;
