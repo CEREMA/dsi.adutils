@@ -44,14 +44,14 @@ public interface ActiveDirectoryClient {
 
 
     /**
-     * Returns the set of {@link AdUser} that are members of the given DN, if any
+     * Returns the set of {@link AbstractAdObject} that are members of the given DN (which de facto must me a group), if any
      * @param dn the distinguished name of the group whose members will be returned
      * @param recursive
-     * <p> if true, groups will be recursively scanned and their users will be added to the returned set
-     * <p> if false, only users member of the given group dn will be returned
-     * @return the set of users member (recursively or not) of the given group dn
+     * <p> if true, member groups will be recursively scanned and their users will be added to the returned set
+     * <p> if false, only members of the given group dn will be returned
+     * @return the set of objects members (recursively or not) of the given group dn
      */
-    Set<AdUser> getUsersForDN(String dn, boolean recursive);
+    Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive);
 
     Set<AdGroup> getGroupsForDN(String dn, boolean recursive);
 

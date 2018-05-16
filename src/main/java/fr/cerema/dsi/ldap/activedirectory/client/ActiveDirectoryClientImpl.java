@@ -151,19 +151,19 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     public Set<AdGroup> getGroupsForDN(String dn, boolean recursive) {
-        LOG.info("getAllGroupsForDN called with Dn:" + dn);
+        LOG.info("getGroupsForDN called with Dn:" + dn);
         Set<AdGroup> groups = new HashSet<AdGroup>();
         Set<String> groupsExplored = new HashSet<>();
-        groups.addAll(this.getAllGroupsForDN(dn, recursive, groupsExplored));
+        groups.addAll(this.getGroupsForDN(dn, recursive, groupsExplored));
         return groups;
     }
 
-    public Set<AdUser> getUsersForDN(String dn, boolean recursive) {
+    public Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive) {
         LOG.info("getAllUsersForDN called with Dn:" + dn);
-        Set<AdUser> users = new HashSet<AdUser>();
+        Set<AbstractAdObject> members = new HashSet<AbstractAdObject>();
         Set<String> groups = new HashSet<String>();
-        users.addAll(this.getAllUsersForGroupDN(dn, recursive, groups));
-        return users;
+        members.addAll(this.getMembersForDN(dn, recursive, groups));
+        return members;
     }
 
     @Override
@@ -372,8 +372,8 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         return result;
     }
 
-    private Set<AdUser> getAllUsersForGroupDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
-        Set<AdUser> users = new HashSet<AdUser>();
+    private Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
+        Set<AbstractAdObject> members = new HashSet<AbstractAdObject>();
         LOG.debug("***Exploring  " + dn);
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
@@ -387,7 +387,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 req.setFilter("(objectClass=*)");
 
                 SearchCursor searchCursor = ldapConnection.search(req);
-                Set<String> members = new HashSet<String>();
+                Set<String> membersDn = new HashSet<String>();
                 while (searchCursor.next()) {
                     Response response = searchCursor.get();
                     if (response instanceof SearchResultEntry) {
@@ -395,7 +395,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                         Attribute listMember = resultEntry.get("member");
                         if (listMember != null) {
                             for (Value value : listMember) {
-                                members.add(value.toString());
+                                membersDn.add(value.toString());
                             }
                         }
                     }
@@ -405,8 +405,8 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 req.setTimeLimit(0);
                 req.setFilter("(objectClass=*)");
 
-                for (String member : members) {
-                    req.setBase(new Dn(member));
+                for (String memberDn : membersDn) {
+                    req.setBase(new Dn(memberDn));
                     searchCursor = ldapConnection.search(req);
                     while (searchCursor.next()) {
                         Response response = searchCursor.get();
@@ -416,15 +416,16 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                             if (classe != null) {
                                 for (Value value : classe) {
                                     if (value.toString().equals(ActiveDirectoryClient.AD_USER_OBJECTCLASS)) {
-                                        users.add(this.createUserFromUserEntry(resultEntry));
+                                        members.add(this.createUserFromUserEntry(resultEntry));
                                     }
-                                    if (recursive) {
-                                        if (value.toString().equals(ActiveDirectoryClient.AD_GROUP_OBJECTCLASS)) {
-                                            if (groupsAlreadyExplored.contains(member)) {
-                                                LOG.debug("****Skipping " + member);
+                                    if (value.toString().equals(ActiveDirectoryClient.AD_GROUP_OBJECTCLASS)) {
+                                        members.add(this.createGroupFromGroupEntry(resultEntry));
+                                        if (recursive) {
+                                            if (groupsAlreadyExplored.contains(memberDn)) {
+                                                LOG.debug("****Skipping " + memberDn);
                                             } else {
-                                                groupsAlreadyExplored.add(member);
-                                                users.addAll(getAllUsersForGroupDN(member, true, groupsAlreadyExplored));
+                                                groupsAlreadyExplored.add(memberDn);
+                                                members.addAll(getMembersForDN(memberDn, true, groupsAlreadyExplored));
                                             }
                                         }
                                     }
@@ -446,10 +447,10 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         } catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
         }
-        return users;
+        return members;
     }
 
-    private Set<AdGroup> getAllGroupsForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
+    private Set<AdGroup> getGroupsForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
 
         Set<AdGroup> groups = new HashSet<AdGroup>();
         Set<String> memberOfs = new HashSet<>();
@@ -497,7 +498,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                                                 LOG.debug("****Skipping " + memberOf);
                                             } else {
                                                 groupsAlreadyExplored.add(memberOf);
-                                                groups.addAll(getAllGroupsForDN(memberOf, true, groupsAlreadyExplored));
+                                                groups.addAll(getGroupsForDN(memberOf, true, groupsAlreadyExplored));
                                             }
                                         }
                                     }
