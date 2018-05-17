@@ -79,6 +79,15 @@ public interface ActiveDirectoryClient {
 
     Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase);
 
+    /**
+     * Returns a set of {@link AbstractAdObject} i.e. {@link AdUser} or {@link AdGroup} whose commonName (ie. cn)
+     * contains the commonName given as parameter.
+     * <p>
+     * Search filter is based on searchBase DN.
+     * @param commonName the string that must be contained in results commonName
+     * @param searchBase the dn of the search base
+     * @return {@link AbstractAdObject} whose common name contains commonName parameter
+     */
     Set<AbstractAdObject> findByCommonName(String commonName, String searchBase);
 
     AbstractAdObject getByDn(String dn);
