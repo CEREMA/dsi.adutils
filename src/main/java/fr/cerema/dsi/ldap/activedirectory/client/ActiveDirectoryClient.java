@@ -79,6 +79,8 @@ public interface ActiveDirectoryClient {
 
     Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase);
 
+    Set<AbstractAdObject> findByCommonName(String commonName, String searchBase);
+
     AbstractAdObject getByDn(String dn);
 
 }
