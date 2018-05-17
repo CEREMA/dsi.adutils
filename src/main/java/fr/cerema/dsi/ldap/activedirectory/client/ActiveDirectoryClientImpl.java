@@ -197,6 +197,29 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
+    public void deleteByDn(String dn) {
+        LOG.info("deleteSecurityGroup called with Dn: " + dn);
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            LOG.debug("Successfully got connection from pool");
+            try {
+                ldapConnection.delete(dn);
+                LOG.info("Active directory object with dn " + dn + " successfully deleted.");
+            } catch (LdapException lde) {
+                LOG.error("An error occured while requesting LDAP Server for security group creation :");
+                LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            } finally {
+                ldapConnectionPool.releaseConnection(ldapConnection);
+                LOG.debug("Successfully released connection to pool");
+            }
+        }
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+        }
+    }
+
+    @Override
     public AdGroup createSecurityGroup(String dn, String description, String sAMAccountName) {
         LOG.info("createSecurityGroup called with Dn: " + dn + " description: " + description + " samAccountName: " + sAMAccountName);
         AdGroup groupCreated = null;
@@ -225,6 +248,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 }
                 ldapConnection.add(entry);
                 groupCreated = (AdGroup) this.getByDn(dn);
+                LOG.info("Security group with dn " + dn + " successfully created.");
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for security group creation :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
@@ -255,6 +279,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                           entityDn);
 
                 ldapConnection.modify(groupDn,addMemberModification);
+                LOG.info("Entity " + entityDn + " successfully added to group " + groupDn);
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for group modification :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
@@ -283,6 +308,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                         entityDn);
 
                 ldapConnection.modify(groupDn,memberModification);
+                LOG.info("Entity " + entityDn + " successfully removed from group " + groupDn);
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for group modification :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());

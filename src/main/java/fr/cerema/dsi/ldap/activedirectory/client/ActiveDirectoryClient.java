@@ -65,6 +65,8 @@ public interface ActiveDirectoryClient {
      */
     AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase);
 
+    void deleteByDn(String dn);
+
     AdGroup createSecurityGroup(String dn);
 
     AdGroup createSecurityGroup(String dn, String description) ;
