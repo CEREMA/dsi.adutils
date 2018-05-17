@@ -65,6 +65,10 @@ public interface ActiveDirectoryClient {
      */
     AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase);
 
+    /**
+     * Deletes the active directory object whose dn is given as dn parameter
+     * @param dn the dn of object to remove
+     */
     void deleteByDn(String dn);
 
     AdGroup createSecurityGroup(String dn);
