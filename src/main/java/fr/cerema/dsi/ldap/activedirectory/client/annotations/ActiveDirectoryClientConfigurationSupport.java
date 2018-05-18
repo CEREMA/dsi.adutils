@@ -28,6 +28,14 @@ import org.springframework.web.context.ServletContextAware;
 
 import javax.servlet.ServletContext;
 
+/**
+ * This class is loaded by the {@link EnableActiveDirectoryClient} annotation (it loads
+ * {@link fr.cerema.dsi.ldap.activedirectory.client.DelegatingActiveDirectoryClientConfiguration} which extends
+ * this class
+ * <p>
+ * it holds the {@link LdapConnectionConfigurer} and creates an instance
+ * of {@link ActiveDirectoryClientImpl} which is put in the container with id activeDirectoryClient
+ */
 public class ActiveDirectoryClientConfigurationSupport implements ApplicationContextAware, ServletContextAware {
 
     @Nullable
@@ -88,6 +96,7 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
 
     @Bean(name = "activeDirectoryClient")
     public ActiveDirectoryClient createActiveDirectoryClient() {
-        return new ActiveDirectoryClientImpl(this.getLdapConnectionConfigurer().getLdapConnectionConfig());
+        return new ActiveDirectoryClientImpl(this.getLdapConnectionConfigurer()
+                                             .getLdapConnectionConfig());
     }
 }

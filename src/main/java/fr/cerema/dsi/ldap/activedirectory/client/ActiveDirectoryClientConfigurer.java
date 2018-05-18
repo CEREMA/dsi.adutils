@@ -16,9 +16,17 @@
 
 package fr.cerema.dsi.ldap.activedirectory.client;
 
+/**
+ * This interface exposes methods for configuring the Active Directory Client bean.
+ * Up to now, only connection's parameters can be configured. The connection pool cannot yet be configured (next version)
+ */
 public interface ActiveDirectoryClientConfigurer {
 
+    /**
+     * Backend method that is called by the framework for configuring the ldap connection
+     * Must be overriden in the configuration class implementing the interface
+     * @param ldapConnectionConfigurer
+     */
     default void configureLdapConnection(LdapConnectionConfigurer ldapConnectionConfigurer) {    }
-
 
 }

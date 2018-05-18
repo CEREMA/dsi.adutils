@@ -20,6 +20,14 @@ import fr.cerema.dsi.ldap.activedirectory.client.annotations.ActiveDirectoryClie
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * This class holds the activeDirectoryClientConfigurer implementation that is defined by the developper
+ * (a minima for defining connection parameters).
+ * <p>
+ * it is used by the framework who calls back the configureLdapConnection method implemented by
+ * the {@link ActiveDirectoryClientConfigurer} defined by the developper
+ * and not the default one defined in
+ */
 @Configuration
 public class DelegatingActiveDirectoryClientConfiguration extends ActiveDirectoryClientConfigurationSupport {
 
