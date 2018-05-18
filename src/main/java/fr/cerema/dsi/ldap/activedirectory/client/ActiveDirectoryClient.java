@@ -44,7 +44,7 @@ public interface ActiveDirectoryClient {
 
 
     /**
-     * Returns the set of {@link AbstractAdObject} that are members of the given DN (which de facto must me a group), if any
+     * Returns the set of {@link AbstractAdObject} that are members of the given DN (which de facto must be a group), if any
      * @param dn the distinguished name of the group whose members will be returned
      * @param recursive
      * <p> if true, member groups will be recursively scanned and their users will be added to the returned set
@@ -53,15 +53,29 @@ public interface ActiveDirectoryClient {
      */
     Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive);
 
+    /**
+     * Returns the set of {@link AdGroup} containing the object whose dn is given as argument, if any
+     * @param dn the distinguished name of the object we want to get the containing groups
+     * @param recursive
+     * <p> if true, member groups will be recursively scanned and their users will be added to the returned set
+     * <p> if false, only members of the given group dn will be returned
+     * @return the set of objects members (recursively or not) of the given group dn
+     */
     Set<AdGroup> getGroupsForDN(String dn, boolean recursive);
 
+    /**
+     * Returns a Set of String containing the dn of objects whose sAMAccountNames <b>begin</b> with the sAMAccountName param.
+     * @param sAMAccountName the sAMAccountName
+     * @param searchBase the searchBase in the ldap directory
+     * @return the set of String containing dn whose sAMAccountNames begin with the given parameter
+     */
     Set<String> findBySAMAccountName(String sAMAccountName, String searchBase);
 
     /**
-     * Returns an Active Directory Object by sAMAccountName, searching the directory from the searchBase
+     * Returns the only object whose sAMAccountName is given as sAMAccountName parameter, or null if not found
      * @param sAMAccountName the sAMAccountName of the object to get
      * @param searchBase the searchBase to search from
-     * @return an {@link AbstractAdObject}, i.e. for the moment a {@link AdGroup} or a {@link AdUser}
+     * @return the matching object or null if not found
      */
     AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase);
 
@@ -71,23 +85,63 @@ public interface ActiveDirectoryClient {
      */
     void deleteByDn(String dn);
 
+    /**
+     * Creates a security group with the given Dn
+     * @param dn the dn of the group to create
+     * @return the {@link AdGroup} created, or null if it fails for some reason (see logs for details)
+     */
     AdGroup createSecurityGroup(String dn);
 
+    /**
+     * Creates a security group with the given Dn and description
+     * @param dn the dn of the group to create
+     * @param description the description of the group
+     * @return the {@link AdGroup} created, or null if it fails for some reason (see logs for details)
+     */
     AdGroup createSecurityGroup(String dn, String description) ;
 
+    /**
+     * Creates a security group with the given Dn, description and sAMAccountName
+     * @param dn the dn of the group to create
+     * @param description the description of the group
+     * @param sAMAccountName the sAMAccountName of the group
+     * @return the {@link AdGroup} created, or null if it fails for some reason (see logs for details)
+     */
     AdGroup createSecurityGroup(String dn, String description, String sAMAccountName);
 
+    /**
+     * Adds an existing entity to an existing group
+     * @param entityDn the dn of the entity to add to the group
+     * @param groupDN the group's dn we must add the entity in
+     */
     void addEntityToGroup(String entityDn, String groupDN);
 
+    /**
+     * Removes an object from a group
+     * @param entityDn then dn of the entity to remove from the group
+     * @param groupDn the dn of the group the entity must be removed from
+     */
     void removeEntityFromGroup(String entityDn, String groupDn);
 
+    /**
+     * Return the object whose objectSid is given as parameter
+     * @param objectSid the objectSid to search
+     * @param searchBase the searchBase dn
+     * @return the found object or null if not found
+     */
     AbstractAdObject getObjectBySid(String objectSid, String searchBase);
 
+    /**
+     * Returns a set of objects whose objectSids are given in parameter
+     * @param sids the {@link List} of objectSid to search
+     * @param searchBase the searchBase
+     * @return the set of objects whose objectSids are those given as parameters
+     */
     Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase);
 
     /**
-     * Returns a set of {@link AbstractAdObject} i.e. {@link AdUser} or {@link AdGroup} whose commonName (ie. cn)
-     * contains the commonName given as parameter.
+     * Returns a set of {@link AbstractAdObject} whose commonName (ie. cn)
+     * <b>contains</b> the commonName given as parameter.
      * <p>
      * Search filter is based on searchBase DN.
      * @param commonName the string that must be contained in results commonName
@@ -96,6 +150,11 @@ public interface ActiveDirectoryClient {
      */
     Set<AbstractAdObject> findByCommonName(String commonName, String searchBase);
 
+    /**
+     * Returns the only Object whose dn is given as parameter, or null if not found
+     * @param dn the dn of the object
+     * @return the object found or null if no matching dn found
+     */
     AbstractAdObject getByDn(String dn);
 
 }

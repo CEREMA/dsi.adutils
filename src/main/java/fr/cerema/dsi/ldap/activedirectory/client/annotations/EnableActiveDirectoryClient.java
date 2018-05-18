@@ -33,24 +33,21 @@ import java.lang.annotation.Target;
  *<p>
  *
  * <pre>
- *     <code>
- *     {
- *      @literal @Configuration
- *      @literal @EnableActiveDirectoryClient
+ *      &#64;Configuration
+ *      &#64;EnableActiveDirectoryClient
  *      public class ActiveDirectoryClientConfig implements ActiveDirectoryClientConfigurer {
  *
- *      @literal @Override
+ *      &#64;Override
  *      public void configureLdapConnection(LdapConnectionConfigurer ldapConnectionConfigurer) {
  *         ldapConnectionConfigurer.configureLdapHost("activeDirectoryHost")
  *                 .configureLdapPort(389)
  *                 .configureDn("userDN")
  *                 .configureCredentials("user Password);
- *     }
- * }
- *     }
- *     </code>
+ *      }
+ *  }
  * </pre>
  *
+ * <p>
  * The developper can also extends directly the {@link ActiveDirectoryClientConfigurationSupport} in the configuration class
  * and override the connection's configuration mathod(s).
 

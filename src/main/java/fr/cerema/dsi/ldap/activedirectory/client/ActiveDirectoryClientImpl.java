@@ -49,6 +49,10 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     private LdapConnectionConfig ldapConnectionConfig;
     private LdapConnectionPool ldapConnectionPool;
 
+    /**
+     * Public constructor for this class
+     * @param config the Ldap Connection config to use
+     */
     public ActiveDirectoryClientImpl(LdapConnectionConfig config) {
         LOG = LoggerFactory.getLogger(ActiveDirectoryClientImpl.class);
         this.ldapConnectionConfig = config;
@@ -65,6 +69,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 + "@" + this.ldapConnectionConfig.getLdapHost()
                 +":"+this.ldapConnectionConfig.getLdapPort();
     }
+
 
     @Override
     public AbstractAdObject getByDn(String dn) {
@@ -377,6 +382,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         return results;
     }
 
+    @Override
     public Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase) {
         Set<AbstractAdObject> results = new HashSet<>();
         for (String sid : sids ) {

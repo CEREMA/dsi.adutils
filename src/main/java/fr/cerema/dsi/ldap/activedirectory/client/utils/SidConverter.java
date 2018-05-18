@@ -19,12 +19,22 @@ package fr.cerema.dsi.ldap.activedirectory.client.utils;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+/**
+ * Active directory stores the objectSid of any object as an array of bytes.
+ * This class allows to convert it into the Sid human readable representation.
+ * Il allows also to convert the human readable String representation into the array of byte representation.
+ */
 public class SidConverter {
 
     private final static int MASK_8_BIT = 0xff;
     private final static long MASK_32_BIT = 0xffffffffL;
     private final static long MASK_48_BIT = 0xffffffffffffL;
 
+    /**
+     * Converts the objectSid's array of bytes into the Sid String representation
+     * @param bytes the array og  bytes
+     * @return the sid string representation
+     */
     public static String bytesToString(byte[] bytes) {
         if (bytes.length < 8) {
             throw new IllegalArgumentException(
@@ -65,6 +75,11 @@ public class SidConverter {
         return sb.toString();
     }
 
+    /**
+     * Converts the objectSid's string representation in an array of bytes
+     * @param sid the String representation of the objectSid
+     * @return the objectSid's representation as an array of bytes
+     */
     public static byte[] stringToBytes(String sid) {
         if (!sid.startsWith("S-") && !sid.startsWith("s-")) {
             throw new IllegalArgumentException("Invalid SID \"" + sid

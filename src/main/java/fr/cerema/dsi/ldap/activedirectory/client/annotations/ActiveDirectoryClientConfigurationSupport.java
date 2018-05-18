@@ -31,9 +31,9 @@ import javax.servlet.ServletContext;
 /**
  * This class is loaded by the {@link EnableActiveDirectoryClient} annotation (it loads
  * {@link fr.cerema.dsi.ldap.activedirectory.client.DelegatingActiveDirectoryClientConfiguration} which extends
- * this class
+ * this class.
  * <p>
- * it holds the {@link LdapConnectionConfigurer} and creates an instance
+ * It holds the {@link LdapConnectionConfigurer} and creates an instance
  * of {@link ActiveDirectoryClientImpl} which is put in the container with id activeDirectoryClient
  */
 public class ActiveDirectoryClientConfigurationSupport implements ApplicationContextAware, ServletContextAware {
@@ -102,11 +102,12 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
 
     /**
      * Configures the ldap connection with the given configurer
+     * <p>
      * Method must be overriden in configuration class by:
-     * <li>
-     *     <ul> implementing {@link ActiveDirectoryClientConfigurer}</ul>
-     *     <ul> or extending {@link ActiveDirectoryClientConfigurationSupport}</ul>
-     * </li>
+     * <ul>
+     *     <li> implementing {@link fr.cerema.dsi.ldap.activedirectory.client.ActiveDirectoryClientConfigurer}</li>
+     *     <li> or extending {@link ActiveDirectoryClientConfigurationSupport}</li>
+     * </ul>
      * @see LdapConnectionConfigurer
      */
     protected void configureLdapConnection(LdapConnectionConfigurer configurer) {
@@ -117,7 +118,10 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
     }
 
 
-
+    /**
+     * Called by the framework in order to create the activeDirectoryClient instance
+     * @return
+     */
     @Bean(name = "activeDirectoryClient")
     public ActiveDirectoryClient createActiveDirectoryClient() {
         return new ActiveDirectoryClientImpl(this.getLdapConnectionConfigurer()

@@ -115,7 +115,7 @@ public abstract class AbstractAdObject {
     }
 
     /**
-     *
+     * Equals method implementation
      * @param o the object to compare to
      * @return true if equals, false otherwise
      */
