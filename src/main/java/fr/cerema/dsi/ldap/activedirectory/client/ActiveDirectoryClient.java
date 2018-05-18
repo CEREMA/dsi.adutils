@@ -152,7 +152,7 @@ public interface ActiveDirectoryClient {
 
     /**
      * Returns the only Object whose dn is given as parameter, or null if not found
-     * @param dn the dn of the object
+     * @param dn the dn of the object to get
      * @return the object found or null if no matching dn found
      */
     AbstractAdObject getByDn(String dn);
