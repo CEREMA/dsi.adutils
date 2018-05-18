@@ -24,6 +24,31 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * This annotation used in a class marked with the  {@link org.springframework.context.annotation.Configuration}
+ * instantiates the active directory and makes it available in the spring container with bean id activeDirectoryClient
+ * <p>
+ * The configuration class must implements {@link fr.cerema.dsi.ldap.activedirectory.client.ActiveDirectoryClientConfigurer}
+ * so you can set the connection parameters by overriding the configureLdapConnection method
+ *<p>
+ *
+ * <pre>
+ *     {@code
+ *      @Configuration
+ *      @EnableActiveDirectoryClient
+ *      public class ActiveDirectoryClientConfig implements ActiveDirectoryClientConfigurer {
+ *
+ *      @Override
+ *      public void configureLdapConnection(LdapConnectionConfigurer ldapConnectionConfigurer) {
+ *         ldapConnectionConfigurer.configureLdapHost("activeDirectoryHost")
+ *                 .configureLdapPort(389)
+ *                 .configureDn("userDN")
+ *                 .configureCredentials("user Password);
+ *     }
+ * }
+ *     }
+ * </pre>
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Import(DelegatingActiveDirectoryClientConfiguration.class)
