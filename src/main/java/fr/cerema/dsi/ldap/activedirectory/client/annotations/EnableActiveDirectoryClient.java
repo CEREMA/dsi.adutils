@@ -34,11 +34,11 @@ import java.lang.annotation.Target;
  *
  * <pre>
  *     {@code
- *      &#064;Configuration
- *      &#064;EnableActiveDirectoryClient
+ *      @literal @Configuration
+ *      @literal @EnableActiveDirectoryClient
  *      public class ActiveDirectoryClientConfig implements ActiveDirectoryClientConfigurer {
  *
- *      &#064;Override
+ *      @literal @Override
  *      public void configureLdapConnection(LdapConnectionConfigurer ldapConnectionConfigurer) {
  *         ldapConnectionConfigurer.configureLdapHost("activeDirectoryHost")
  *                 .configureLdapPort(389)

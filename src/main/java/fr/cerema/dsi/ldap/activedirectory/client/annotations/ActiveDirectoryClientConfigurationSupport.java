@@ -47,22 +47,39 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
     @Nullable
     private LdapConnectionConfigurer ldapConnectionConfigurer;
 
+    /**
+     * Sets the application Context
+     * @param applicationContext the application context
+     * @throws BeansException
+     */
     @Override
     public void setApplicationContext(@Nullable ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }
 
+    /**
+     * Sets the servlet context
+     * @param servletContext the servlet context
+     */
     @Override
     public void setServletContext(@Nullable ServletContext servletContext) {
         this.servletContext = servletContext;
     }
 
 
+    /**
+     * Returns the application context
+     * @return the application context
+     */
     @Nullable
     public final ApplicationContext getApplicationContext() {
         return this.applicationContext;
     }
 
+    /**
+     * Returns the servlet context
+     * @return the servelt context
+     */
     @Nullable
     public final ServletContext getServletContext() {
         return this.servletContext;
@@ -70,7 +87,9 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
 
 
     /**
-     * Callback for building the {@link LdapConnectionConfigurer}.
+     * Callback method for building the {@link LdapConnectionConfigurer} and configuring
+     * the ldap connection
+     * <p>
      * Delegates to {@link #configureLdapConnection}.
      */
     protected LdapConnectionConfigurer getLdapConnectionConfigurer() {
@@ -82,7 +101,12 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
     }
 
     /**
-     * Surcharger cette méthode pour configurer la connexion LDAP
+     * Configures the ldap connection with the given configurer
+     * Method must be overriden in configuration class by:
+     * <li>
+     *     <ul> implementing {@link fr.cerema.dsi.ldap.activedirectory.client.ActiveDirectoryClientConfigurer}</ul>
+     *     <ul> or extending {@link ActiveDirectoryClientConfigurationSupport}</ul>
+     * </li>
      * @see LdapConnectionConfigurer
      */
     protected void configureLdapConnection(LdapConnectionConfigurer configurer) {
