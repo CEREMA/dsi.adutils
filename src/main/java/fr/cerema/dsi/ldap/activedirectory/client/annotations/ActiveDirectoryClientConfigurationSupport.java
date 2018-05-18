@@ -104,7 +104,7 @@ public class ActiveDirectoryClientConfigurationSupport implements ApplicationCon
      * Configures the ldap connection with the given configurer
      * Method must be overriden in configuration class by:
      * <li>
-     *     <ul> implementing {@link fr.cerema.dsi.ldap.activedirectory.client.ActiveDirectoryClientConfigurer}</ul>
+     *     <ul> implementing {@link ActiveDirectoryClientConfigurer}</ul>
      *     <ul> or extending {@link ActiveDirectoryClientConfigurationSupport}</ul>
      * </li>
      * @see LdapConnectionConfigurer

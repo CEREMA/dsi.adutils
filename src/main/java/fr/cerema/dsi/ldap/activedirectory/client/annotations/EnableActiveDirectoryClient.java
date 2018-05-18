@@ -33,7 +33,8 @@ import java.lang.annotation.Target;
  *<p>
  *
  * <pre>
- *     {@code
+ *     <code>
+ *     {
  *      @literal @Configuration
  *      @literal @EnableActiveDirectoryClient
  *      public class ActiveDirectoryClientConfig implements ActiveDirectoryClientConfigurer {
@@ -47,6 +48,7 @@ import java.lang.annotation.Target;
  *     }
  * }
  *     }
+ *     </code>
  * </pre>
  *
  * The developper can also extends directly the {@link ActiveDirectoryClientConfigurationSupport} in the configuration class

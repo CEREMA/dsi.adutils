@@ -39,6 +39,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * This is the core class of ActiveDirectoryClient
+ * It implements the API defined in {@link ActiveDirectoryClient} interface
+ */
 public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
 
     private static Logger LOG;
