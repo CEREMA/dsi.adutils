@@ -146,7 +146,7 @@ public interface ActiveDirectoryClient {
      * Search filter is based on searchBase DN.
      * @param commonName the string that must be contained in results commonName
      * @param searchBase the dn of the search base
-     * @return {@link AbstractAdObject} whose common name contains commonName parameter
+     * @return {@link AbstractAdObject} whose common name <b>contains</b> commonName parameter
      */
     Set<AbstractAdObject> findByCommonName(String commonName, String searchBase);
 
