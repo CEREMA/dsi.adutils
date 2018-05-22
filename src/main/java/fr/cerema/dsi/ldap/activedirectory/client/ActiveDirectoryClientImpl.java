@@ -16,6 +16,10 @@
 
 package fr.cerema.dsi.ldap.activedirectory.client;
 
+import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientConnectionException;
+import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientException;
+import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientInvalidDnException;
+import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientRequestException;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AbstractAdObject;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AdGroup;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AdUser;
@@ -34,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -72,7 +77,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
 
 
     @Override
-    public AbstractAdObject getByDn(String dn) {
+    public AbstractAdObject getByDn(String dn) throws ActiveDirectoryClientException{
         LOG.info("getByDn called with : " + dn);
         AbstractAdObject result = null;
         try {
@@ -89,6 +94,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             catch(LdapException lde) {
                 LOG.error("An error occured while requesting the ldap server.");
                 LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.", lde);
             }
             finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
@@ -99,13 +105,14 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
 
         return result;
     }
 
     @Override
-    public AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase) {
+    public AbstractAdObject getBySAMAccountName(String sAMAccountName, String searchBase) throws ActiveDirectoryClientException {
         LOG.info("getBySAMAccountName called with sAMAccountName: " + sAMAccountName + " and searchBase: " + searchBase);
         AbstractAdObject result = null;
         try {
@@ -119,14 +126,21 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 Attribute classes = resultEntry.get("objectClass");
                 if (classes.contains(AD_USER_OBJECTCLASS)) result = this.createUserFromUserEntry(resultEntry);
                 if (classes.contains(AD_GROUP_OBJECTCLASS)) result = this.createGroupFromGroupEntry(resultEntry);
+                entryCursor.close();
             }
             catch(LdapException lde) {
                 LOG.error("An error occured while requesting the ldap server.");
                 LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw  new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.",lde);
             }
             catch (CursorException ce) {
-                LOG.error("An error occured while fetching next cursor of LDAP request results.");
-                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("An error occured while fetching next cursor of LDAP request results.");
+                LOG.warn("There is probably no result for this request.");
+                LOG.warn("Message from  Server is :" +ce.getLocalizedMessage());
+            }
+            catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
             }
             finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
@@ -137,12 +151,13 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
 
         return result;
     }
 
-    public Set<AdGroup> getGroupsForDN(String dn, boolean recursive) {
+    public Set<AdGroup> getGroupsForDN(String dn, boolean recursive) throws ActiveDirectoryClientException{
         LOG.info("getGroupsForDN called with Dn:" + dn);
         Set<AdGroup> groups = new HashSet<AdGroup>();
         Set<String> groupsExplored = new HashSet<>();
@@ -150,7 +165,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         return groups;
     }
 
-    public Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive) {
+    public Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive) throws ActiveDirectoryClientException{
         LOG.info("getAllUsersForDN called with Dn:" + dn);
         Set<AbstractAdObject> members = new HashSet<AbstractAdObject>();
         Set<String> groups = new HashSet<String>();
@@ -159,7 +174,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
-    public Set<AbstractAdObject> findByCommonName(String commonName, String searchBase) {
+    public Set<AbstractAdObject> findByCommonName(String commonName, String searchBase) throws  ActiveDirectoryClientException{
         LOG.info("findByCommonName called with : " + commonName + " and searchBase: " +searchBase);
         Set<AbstractAdObject> result = new HashSet<>();
         try {
@@ -173,14 +188,21 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                     if (classes.contains(AD_USER_OBJECTCLASS)) result.add(this.createUserFromUserEntry(resultEntry));
                     if (classes.contains(AD_GROUP_OBJECTCLASS)) result.add(this.createGroupFromGroupEntry(resultEntry));
                 }
+                entryCursor.close();
             }
             catch(LdapException lde) {
                 LOG.error("An error occured while requesting the ldap server.");
                 LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.", lde);
             }
             catch (CursorException ce) {
-                LOG.error("An error occured while fetching next cursor of LDAP request results.");
-                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("An error occured while fetching next cursor of LDAP request results.");
+                LOG.warn("The is probably no result for this request.");
+                LOG.warn("Message from  Server is :" +ce.getLocalizedMessage());
+            }
+            catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
             }
             finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
@@ -191,22 +213,23 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
         return result;
     }
 
     @Override
-    public AdGroup createSecurityGroup(String dn) {
+    public AdGroup createSecurityGroup(String dn) throws ActiveDirectoryClientException{
         return this.createSecurityGroup(dn, null, null);
     }
 
     @Override
-    public AdGroup createSecurityGroup(String dn, String description) {
+    public AdGroup createSecurityGroup(String dn, String description) throws ActiveDirectoryClientException{
         return this.createSecurityGroup(dn, description, null);
     }
 
     @Override
-    public void deleteByDn(String dn) {
+    public void deleteByDn(String dn) throws ActiveDirectoryClientException {
         LOG.info("deleteSecurityGroup called with Dn: " + dn);
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
@@ -217,6 +240,8 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for security group creation :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server for security group deletion." +
+                        "Please check the dn, and if correct please check you are authorized to delete it.",lde);
             } finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
@@ -225,11 +250,12 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
     }
 
     @Override
-    public AdGroup createSecurityGroup(String dn, String description, String sAMAccountName) {
+    public AdGroup createSecurityGroup(String dn, String description, String sAMAccountName) throws ActiveDirectoryClientException{
         LOG.info("createSecurityGroup called with Dn: " + dn + " description: " + description + " samAccountName: " + sAMAccountName);
         AdGroup groupCreated = null;
         String accountName = null;
@@ -241,7 +267,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             accountName = ((sAMAccountName == null || "".equals(sAMAccountName) ? dnToCreate.getRdn().getValue() : sAMAccountName)) ;
         } catch (LdapInvalidDnException e) {
             LOG.error(dn + " is not a valid dn.");
-            return null;
+            throw new ActiveDirectoryClientInvalidDnException(dn + "is not a valid distinguishedName");
         }
 
         try {
@@ -259,8 +285,10 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 groupCreated = (AdGroup) this.getByDn(dn);
                 LOG.info("Security group with dn " + dn + " successfully created.");
             } catch (LdapException lde) {
-                LOG.error("An error occured while requesting LDAP Server for security group creation :");
+                LOG.error("An error occured while requesting LDAP Server for security group creation.");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server for security group creation." +
+                        "Please check the dn, and if correct please verify you are authorized to create it.", lde);
             } finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
@@ -269,6 +297,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
 
         return groupCreated;
@@ -276,7 +305,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
-    public void addEntityToGroup(String entityDn, String groupDn) {
+    public void addEntityToGroup(String entityDn, String groupDn) throws ActiveDirectoryClientException{
         LOG.info("addEntityToGroup called with entityDn: + " + entityDn + " and groupDn" + groupDn);
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
@@ -290,8 +319,10 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 ldapConnection.modify(groupDn,addMemberModification);
                 LOG.info("Entity " + entityDn + " successfully added to group " + groupDn);
             } catch (LdapException lde) {
-                LOG.error("An error occured while requesting LDAP Server for group modification :");
+                LOG.error("An error occured while requesting LDAP Server for group modification.");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server for group modification." +
+                        "Please check the given Dns, and your authorizations against the AD.",lde);
             } finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
@@ -300,12 +331,13 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.",lde);
         }
 
     }
 
     @Override
-    public void removeEntityFromGroup(String entityDn, String groupDn) {
+    public void removeEntityFromGroup(String entityDn, String groupDn) throws ActiveDirectoryClientException {
         LOG.info("removeEntityFromGroup called with entityDn: + " + entityDn + " and groupDn" + groupDn);
         try {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
@@ -321,6 +353,8 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server for group modification :");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server for entity remowal." +
+                        "Please check the given Dns, and your authorizations against the AD.",lde);
             } finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
@@ -329,11 +363,12 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
     }
 
     @Override
-    public Set<String> findBySAMAccountName(String sAMAccountName, String searchBase) {
+    public Set<String> findBySAMAccountName(String sAMAccountName, String searchBase) throws ActiveDirectoryClientException{
         LOG.info("findBySAMAccountName called with : " +sAMAccountName);
         Set<String> results = new HashSet<>();
         try {
@@ -359,15 +394,22 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                     results.add(resultEntry.get("distinguishedName").getString());
                 }
             }
+            searchCursor.close();
             }
             catch(LdapException lde) {
                 LOG.error("An error occured while requesting the ldap server.");
                 LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.",lde);
             }
             catch (CursorException ce) {
-                LOG.error("An error occured while fetching next cursor of LDAP request results.");
-                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("An error occured while fetching next cursor of LDAP request results.");
+                LOG.warn("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("The is probably no result for this request.");
                 }
+            catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
+            }
             finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
@@ -383,7 +425,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
-    public Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase) {
+    public Set<AbstractAdObject> getObjectsBySid(List<String> sids, String searchBase) throws ActiveDirectoryClientException{
         Set<AbstractAdObject> results = new HashSet<>();
         for (String sid : sids ) {
             results.add(this.getObjectBySid(sid, searchBase));
@@ -392,7 +434,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
     }
 
     @Override
-    public AbstractAdObject getObjectBySid(String objectSid, String searchBase) {
+    public AbstractAdObject getObjectBySid(String objectSid, String searchBase) throws ActiveDirectoryClientException{
         LOG.info("getByObjectSid called with : " + objectSid + " and searchBase: " + searchBase);
         AbstractAdObject result = null;
         try {
@@ -405,14 +447,21 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                 Attribute classes = resultEntry.get("objectClass");
                 if (classes.contains(AD_USER_OBJECTCLASS)) result = this.createUserFromUserEntry(resultEntry);
                 if (classes.contains(AD_GROUP_OBJECTCLASS)) result = this.createGroupFromGroupEntry(resultEntry);
+                entryCursor.close();
             }
             catch(LdapException lde) {
                 LOG.error("An error occured while requesting the ldap server.");
                 LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.", lde);
             }
             catch (CursorException ce) {
-                LOG.error("An error occured while fetching next cursor of LDAP request results.");
-                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("An error occured while fetching next cursor of LDAP request results.");
+                LOG.warn("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("There is probably no result for this request");
+            }
+            catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
             }
             finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
@@ -423,12 +472,14 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.",lde);
         }
 
         return result;
     }
 
-    private Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
+    private Set<AbstractAdObject> getMembersForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored)
+             throws ActiveDirectoryClientException {
         Set<AbstractAdObject> members = new HashSet<AbstractAdObject>();
         LOG.debug("***Exploring  " + dn);
         try {
@@ -456,6 +507,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                         }
                     }
                 }
+                searchCursor.close();
                 req.setScope(SearchScope.SUBTREE);
                 req.addAttributes("*");
                 req.setTimeLimit(0);
@@ -489,24 +541,34 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                             }
                         }
                     }
+                    searchCursor.close();
                 }
             } catch (CursorException ce) {
-                LOG.error("An error occured while fetching next cursor of LDAP request results.");
-                LOG.error("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("An error occured while fetching next cursor of LDAP request results.");
+                LOG.warn("Message from  Server is :" +ce.getLocalizedMessage());
+                LOG.warn("The is probably no result for this request");
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server.");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
-            } finally {
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server.", lde);
+
+            } catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
+            }
+            finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
             }
         } catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
         return members;
     }
 
-    private Set<AdGroup> getGroupsForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored) {
+    private Set<AdGroup> getGroupsForDN(String dn, boolean recursive, Set<String> groupsAlreadyExplored)
+                throws ActiveDirectoryClientException {
 
         Set<AdGroup> groups = new HashSet<AdGroup>();
         Set<String> memberOfs = new HashSet<>();
@@ -537,6 +599,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                         }
                     }
                 }
+                searchCursor.close();
                 for (String memberOf : memberOfs) {
                     req.setBase(new Dn(memberOf));
                     searchCursor = ldapConnection.search(req);
@@ -562,20 +625,28 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                             }
                         }
                     }
+                    searchCursor.close();
                 }
 
             } catch (LdapException lde) {
                 LOG.error("An error occured while requesting LDAP Server.");
                 LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server.",lde);
             } catch (CursorException ce) {
-                LOG.error("An error occured while fetching next cursor of LDAP request results.");
-                LOG.error("Message from Server is :" +ce.getLocalizedMessage());
-            } finally {
+                LOG.warn("An error occured while fetching next cursor of LDAP request results.");
+                LOG.warn("Message from Server is :" +ce.getLocalizedMessage());
+                LOG.warn("the is probably no result for this request.");
+            } catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
+            }
+            finally {
                 ldapConnectionPool.releaseConnection(ldapConnection);
                 LOG.debug("Successfully released connection to pool");
             }
         } catch (LdapException lde) {
             LOG.error("Cannot get/release LdapConnection from/to pool.");
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.",lde);
         }
 
         return groups;
