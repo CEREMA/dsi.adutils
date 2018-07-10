@@ -172,4 +172,12 @@ public interface ActiveDirectoryClient {
      */
     AbstractAdObject getByDn(String dn) throws ActiveDirectoryClientException;
 
+    /**
+     *
+     * @param entityDn the entityDn whose description is to change
+     * @param newDescription the new description
+     * @throws ActiveDirectoryClientException if an exception occurs during the method call
+     */
+    public void changeEntityDescription(String entityDn, String newDescription) throws ActiveDirectoryClientException ;
+
 }

@@ -311,10 +311,10 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             LdapConnection ldapConnection = ldapConnectionPool.getConnection();
             LOG.debug("Successfully got connection from pool");
             try {
-                 Modification addMemberModification = new DefaultModification(
-                         ModificationOperation.ADD_ATTRIBUTE,
-                         "member",
-                          entityDn);
+                Modification addMemberModification = new DefaultModification(
+                        ModificationOperation.ADD_ATTRIBUTE,
+                        "member",
+                        entityDn);
 
                 ldapConnection.modify(groupDn,addMemberModification);
                 LOG.info("Entity " + entityDn + " successfully added to group " + groupDn);
@@ -333,7 +333,37 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
             throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.",lde);
         }
+    }
 
+    @Override
+    public void changeEntityDescription(String entityDn, String newDescription) throws ActiveDirectoryClientException{
+        LOG.info("changeEntityDescription called with entityDn: + " + entityDn + " and groupDn" + entityDn);
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            LOG.debug("Successfully got connection from pool");
+            try {
+                Modification changeDescrModification = new DefaultModification(
+                        ModificationOperation.REPLACE_ATTRIBUTE,
+                        "description",
+                        newDescription);
+
+                ldapConnection.modify(entityDn,changeDescrModification);
+                LOG.info("Successfully changed description attribute of " + entityDn);
+            } catch (LdapException lde) {
+                LOG.error("An error occured while requesting LDAP Server for entity modification.");
+                LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting LDAP Server for group modification." +
+                        "Please check the given Dns, and your authorizations against the AD.",lde);
+            } finally {
+                ldapConnectionPool.releaseConnection(ldapConnection);
+                LOG.debug("Successfully released connection to pool");
+            }
+        }
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.",lde);
+        }
     }
 
     @Override
