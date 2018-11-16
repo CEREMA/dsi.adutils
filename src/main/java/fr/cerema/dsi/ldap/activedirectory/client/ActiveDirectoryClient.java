@@ -20,6 +20,7 @@ import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClien
 import fr.cerema.dsi.ldap.activedirectory.client.model.AbstractAdObject;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AdGroup;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AdUser;
+import fr.cerema.dsi.ldap.activedirectory.client.model.OrganizationalUnit;
 
 import java.util.List;
 import java.util.Set;
@@ -42,6 +43,8 @@ public interface ActiveDirectoryClient {
      * the objectClass identifying a user
      */
     static String AD_USER_OBJECTCLASS = "user";
+
+    static String AD_ORGANIZATIONAL_UNIT_CLASS = "organizationalUnit";
 
 
     /**
@@ -180,4 +183,5 @@ public interface ActiveDirectoryClient {
      */
     public void changeEntityDescription(String entityDn, String newDescription) throws ActiveDirectoryClientException ;
 
+    public OrganizationalUnit findOrganizationalUnits(String distinguishedName) throws  ActiveDirectoryClientException ;
 }

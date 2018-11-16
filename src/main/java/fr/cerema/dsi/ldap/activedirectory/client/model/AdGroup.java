@@ -16,6 +16,10 @@
 
 package fr.cerema.dsi.ldap.activedirectory.client.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import fr.cerema.dsi.ldap.activedirectory.client.utils.SidConverter;
+
 /**
  * Class whose instances are concrete representation of an Active Directory group
  * <p>
@@ -24,7 +28,76 @@ package fr.cerema.dsi.ldap.activedirectory.client.model;
  */
 public class AdGroup extends AbstractAdObject{
 
+    /**
+     * Returns the object's sid as an array of bytes
+     * @return the object's sid
+     */
+    @JsonIgnore
+    public byte[] getObjectSid() {
+        return objectSid;
+    }
+
+    /**
+     * Sets the object's Sid
+     * @param objectSid the object's Sid
+     */
+    public void setObjectSid(byte[] objectSid) {
+        this.objectSid = objectSid;
+    }
+
+
+    /**
+     * Returns the object's sid as a human readable String
+     * <p>
+     * The Sid syntax is used. It means the sid is returned as a String like S-1-5-21-1779429759-2771315062-123184451-12784
+     * @return the object's sid as a String in sid syntax
+     */
+    @JsonProperty("objectSid")
+    public String getObjectSidAsString() {
+        return SidConverter.bytesToString(this.getObjectSid());
+    }
+
+
+    /**
+     * Returns the object's sAMAccountName
+     * @return the object's sAMAccountName
+     */
+    public String getsAMAccountName() {
+        return sAMAccountName;
+    }
+
+    /**
+     * Sets the object's sAMAccountName
+     * @param sAMAccountName the sAMAccountName
+     */
+    public void setsAMAccountName(String sAMAccountName) {
+        this.sAMAccountName = sAMAccountName;
+    }
+
+
+    /**
+     * Returns the object's commonName (CN)
+     * @return the object's CN
+     */
+    public String getCommonName() {
+        return commonName;
+    }
+
+    /**
+     * Sets the object's commonName
+     * @param commonName the object's commonName
+     */
+    public void setCommonName(String commonName) {
+        this.commonName = commonName;
+    }
+
     private String description;
+
+    private byte[] objectSid;
+
+    private String sAMAccountName;
+
+    private String commonName;
 
     /**
      * Returns the group's description

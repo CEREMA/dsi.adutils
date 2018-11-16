@@ -28,43 +28,18 @@ import java.util.Objects;
  */
 
 public abstract class AbstractAdObject {
+    public String getObjectGUID() {
+        return objectGUID;
+    }
 
-    private byte[] objectSid;
+    public void setObjectGUID(String objectGUID) {
+        this.objectGUID = objectGUID;
+    }
+
+    private String objectGUID;
 
     private String distinguishedName;
 
-    private String sAMAccountName;
-
-    private String commonName;
-
-
-    /**
-     * Returns the object's sid as an array of bytes
-     * @return the object's sid
-     */
-    @JsonIgnore
-    public byte[] getObjectSid() {
-        return objectSid;
-    }
-
-    /**
-     * Sets the object's Sid
-     * @param objectSid the object's Sid
-     */
-    public void setObjectSid(byte[] objectSid) {
-        this.objectSid = objectSid;
-    }
-
-    /**
-     * Returns the object's sid as a human readable String
-     * <p>
-     * The Sid syntax is used. It means the sid is returned as a String like S-1-5-21-1779429759-2771315062-123184451-12784
-     * @return the object's sid as a String in sid syntax
-     */
-    @JsonProperty("objectSid")
-    public String getObjectSidAsString() {
-        return SidConverter.bytesToString(this.getObjectSid());
-    }
 
     /**
      * Returns the object's distinguishedName
@@ -80,38 +55,6 @@ public abstract class AbstractAdObject {
      */
     public void setDistinguishedName(String distinguishedName) {
         this.distinguishedName = distinguishedName;
-    }
-
-    /**
-     * Returns the object's sAMAccountName
-     * @return the object's sAMAccountName
-     */
-    public String getsAMAccountName() {
-        return sAMAccountName;
-    }
-
-    /**
-     * Sets the object's sAMAccountName
-     * @param sAMAccountName the sAMAccountName
-     */
-    public void setsAMAccountName(String sAMAccountName) {
-        this.sAMAccountName = sAMAccountName;
-    }
-
-    /**
-     * Returns the object's commonName (CN)
-     * @return the object's CN
-     */
-    public String getCommonName() {
-        return commonName;
-    }
-
-    /**
-     * Sets the object's commonName
-     * @param commonName the object's commonName
-     */
-    public void setCommonName(String commonName) {
-        this.commonName = commonName;
     }
 
     /**

@@ -16,13 +16,13 @@
 
 package fr.cerema.dsi.ldap.activedirectory.client;
 
-import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientConnectionException;
-import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientException;
-import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientInvalidDnException;
-import fr.cerema.dsi.ldap.activedirectory.client.exceptions.ActiveDirectoryClientRequestException;
+import fr.cerema.dsi.ldap.activedirectory.client.exceptions.*;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AbstractAdObject;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AdGroup;
 import fr.cerema.dsi.ldap.activedirectory.client.model.AdUser;
+import fr.cerema.dsi.ldap.activedirectory.client.model.OrganizationalUnit;
+import fr.cerema.dsi.ldap.activedirectory.client.utils.ObjectGUIDConverter;
+import fr.cerema.dsi.ldap.activedirectory.client.utils.PathHelpers;
 import org.apache.directory.api.ldap.model.cursor.CursorException;
 import org.apache.directory.api.ldap.model.cursor.EntryCursor;
 import org.apache.directory.api.ldap.model.cursor.SearchCursor;
@@ -32,7 +32,6 @@ import org.apache.directory.api.ldap.model.exception.LdapInvalidAttributeValueEx
 import org.apache.directory.api.ldap.model.exception.LdapInvalidDnException;
 import org.apache.directory.api.ldap.model.message.*;
 import org.apache.directory.api.ldap.model.name.Dn;
-import org.apache.directory.api.ldap.model.name.Rdn;
 import org.apache.directory.ldap.client.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +63,9 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         LOG.info("Bean activeDirectoryClient instance configured with : " + this.getLdapConnectionParameters());
         DefaultLdapConnectionFactory factory= new DefaultLdapConnectionFactory(config);
         factory.setTimeOut(0);
-        this.ldapConnectionPool = new LdapConnectionPool(new DefaultPoolableLdapConnectionFactory(factory));
+        DefaultPoolableLdapConnectionFactory connectionFactory = new DefaultPoolableLdapConnectionFactory(factory);
+        this.ldapConnectionPool = new LdapConnectionPool(connectionFactory);
+
         LOG.info("LDAP Connection pool ready with default configuration.");
     }
 
@@ -89,6 +90,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
                     Attribute classes = resultEntry.get("objectClass");
                     if (classes.contains(AD_USER_OBJECTCLASS)) result = this.createUserFromUserEntry(resultEntry);
                     if (classes.contains(AD_GROUP_OBJECTCLASS)) result = this.createGroupFromGroupEntry(resultEntry);
+                    if (classes.contains(AD_ORGANIZATIONAL_UNIT_CLASS)) result = this.createOuFromEntry(resultEntry);
                 }
             }
             catch(LdapException lde) {
@@ -216,6 +218,82 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
             throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
         }
         return result;
+    }
+
+    @Override
+    public OrganizationalUnit findOrganizationalUnits(String path) throws  ActiveDirectoryClientException {
+        return  this.findOrganizationalUnits(PathHelpers.createDnFromPath(path), null);
+    }
+
+
+    private OrganizationalUnit findOrganizationalUnits(String distinguishedName, String parentDescription) throws  ActiveDirectoryClientException {
+        LOG.info("findOrganizationalUnits called with : " + distinguishedName);
+
+        // Arguments check
+        Dn name;
+        try {
+            name = new Dn(distinguishedName);
+        } catch (LdapInvalidDnException e) {
+            LOG.error(distinguishedName + " is not a valid dn.");
+            throw new ActiveDirectoryClientInvalidDnException(distinguishedName + "is not a valid distinguishedName");
+        }
+
+        // We immediately get the root organizationalUnit
+        OrganizationalUnit resultUnit = (OrganizationalUnit) this.getByDn(distinguishedName);
+
+        if (parentDescription == null) {
+            String ldapParentDescription = this.getParentDescription(name);
+            if (ldapParentDescription.length()>0) {
+                resultUnit.setDescriptionPath(this.getParentDescription(name) + "/" + resultUnit.getDescription());
+            }
+            else {
+                resultUnit.setDescriptionPath(resultUnit.getDescription());
+            }
+        }
+        else {
+            resultUnit.setDescriptionPath(parentDescription + "/" + resultUnit.getDescription());
+        }
+
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            LOG.debug("Successfully got connection from pool");
+            try {
+                EntryCursor entryCursor = ldapConnection.search(
+                        name,
+                        "(objectClass=" + AD_ORGANIZATIONAL_UNIT_CLASS + ")",
+                        SearchScope.ONELEVEL);
+                for (Entry entry : entryCursor) {
+                        resultUnit.getOrganizationalUnits().add(
+                                this.findOrganizationalUnits(
+                                        entry.get("distinguishedName").getString(),
+                                        resultUnit.getDescriptionPath()
+                                )
+                        );
+                }
+                entryCursor.close();
+            }
+            catch(LdapException lde) {
+                LOG.error("An error occured while requesting the ldap server.");
+                LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.", lde);
+            }
+
+            catch (IOException ioe) {
+                LOG.error("An error occured while closing cursor of LDAP request results.");
+                LOG.error("Message from  Server is :" +ioe.getLocalizedMessage());
+            }
+            finally {
+                ldapConnectionPool.releaseConnection(ldapConnection);
+                LOG.debug("Successfully released connection to pool");
+            }
+        }
+
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
+        }
+        return resultUnit;
     }
 
     @Override
@@ -697,7 +775,7 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         if (Objects.nonNull(userEntry.get("department"))) result.setDepartment(userEntry.get("department").getString());
         if (Objects.nonNull(userEntry.get("sn"))) result.setSurname(userEntry.get("sn").getString());
         result.setObjectSid(userEntry.get("objectSid").getBytes());
-        return result;
+        result.setObjectGUID(ObjectGUIDConverter.getObjectGUIDAsString(userEntry.get("objectGUID").getBytes()));        return result;
     }
 
     private AdGroup createGroupFromGroupEntry(Entry groupEntry ) throws LdapInvalidAttributeValueException {
@@ -710,8 +788,77 @@ public class ActiveDirectoryClientImpl implements ActiveDirectoryClient {
         if (Objects.nonNull(groupEntry.get("description"))) result.setDescription(groupEntry.get("description").getString());
         if (Objects.nonNull(groupEntry.get("cn"))) result.setCommonName(groupEntry.get("cn").getString());
         result.setObjectSid(groupEntry.get("objectSid").getBytes());
+        result.setObjectGUID(ObjectGUIDConverter.getObjectGUIDAsString(groupEntry.get("objectGUID").getBytes()));
         return result;
     }
 
+    private OrganizationalUnit createOuFromEntry(Entry ouEntry ) throws ActiveDirectoryClientException {
+        Assert.notNull(ouEntry, "Entry ouEntry cannot be null");
+        Attribute classes = ouEntry.get("objectClass");
+        Assert.isTrue(classes.contains(AD_ORGANIZATIONAL_UNIT_CLASS),"Given Entry is not a OU entry") ;
+        Dn dn = ouEntry.getDn();
+        OrganizationalUnit result = new OrganizationalUnit();
+        try {
+        result.setPath(PathHelpers.getUoPath(dn.getName()).substring(17));
+        result.setObjectGUID(ObjectGUIDConverter.getObjectGUIDAsString(ouEntry.get("objectGUID").getBytes()));
+        result.setDistinguishedName(dn.toString());
+        if (Objects.nonNull(ouEntry.get("description")))
+            result.setDescription(ouEntry.get("description").getString());
+        } catch(LdapInvalidAttributeValueException e) {
+            throw new ActiveDirectoryAttributeNotFoundException("Mandatory attribute not found in entry.", e);
+        }
+        return result;
+    }
+
+    private String getStringAttributeValue(String dn, String attribute) throws ActiveDirectoryClientException{
+        LOG.info("getStringAttributeValue called with : " + dn + " and attribute " + attribute);
+        String result = "";
+        try {
+            LdapConnection ldapConnection = ldapConnectionPool.getConnection();
+            LOG.debug("Successfully got connection from pool");
+            try {
+                Entry resultEntry = ldapConnection.lookup(dn);
+                if (resultEntry.get(attribute) != null) {
+                    result =  resultEntry.get(attribute).getString();
+                }
+            }
+            catch(LdapException lde) {
+                LOG.error("An error occured while requesting the ldap server.");
+                LOG.error("Message from  Server is :" +lde.getLocalizedMessage());
+                throw new ActiveDirectoryClientRequestException("An error occured while requesting the ldap server.", lde);
+            }
+            finally {
+                ldapConnectionPool.releaseConnection(ldapConnection);
+                LOG.debug("Successfully released connection to pool");
+            }
+        }
+
+        catch (LdapException lde) {
+            LOG.error("Cannot get/release LdapConnection from/to pool.");
+            LOG.error("Message from LDAP Server is :" +lde.getLocalizedMessage());
+            throw new ActiveDirectoryClientConnectionException("Cannot get/release LdapConnection from/to pool.", lde);
+        }
+        return result;
+    }
+
+    private String getParentDescription(Dn dn) throws ActiveDirectoryClientException {
+        String fullParentDescription="";
+            while (dn.getParent() != null) {
+                Dn theParent = dn.getParent();
+                if ("OU".equals(theParent.getRdn().getType())) {
+                    String parentDescription = this.getStringAttributeValue(theParent.getName(), "description");
+                    if (parentDescription.length()>0) fullParentDescription = parentDescription + "/" + fullParentDescription;
+                } else {
+                    break;
+                }
+                dn = theParent;
+            }
+            if (fullParentDescription.length()>0) {
+                return fullParentDescription.substring(0,fullParentDescription.length()-1);
+            }
+            else {
+                return fullParentDescription;
+            }
+    }
 
 }
